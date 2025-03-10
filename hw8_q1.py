@@ -38,17 +38,18 @@ errorTest = []
 def cvx_opt(
         mu_i: np.ndarray
 ) -> list:
+    # mu_i = mus[1]
     ## cp variables
     A = cp.Variable((K, n))
     b = cp.Variable(K)
+    z = cp.Variable((mTrain, 1))
 
     # Objective
-    f0 = 1 * mu_i * cp.square(cp.norm(A, 'fro'))
-
+    f0 = mu_i * cp.square(cp.norm(A, 'fro'))
     for i in range(mTrain):
+        y_i = y[i]
         x_i = x[:, i]
         F_i = A @ x_i + b  # construct F
-        y_i = y[i]
         f_yi = F_i[y_i]
         F_removed = cp.hstack([F_i[j] for j in range(K) if j != y_i])
         f_k = cp.max(F_removed)
@@ -77,17 +78,31 @@ for i in range(N):
 
 ## Do the validation check
 y_hat_train = np.zeros((N, mTrain))
-error_rate = np.zeros(N)
-error_list = np.zeros((N, mTrain))
+y_hat_test = np.zeros((N, mTest))
+error_rate_train = np.zeros(N)
+error_rate_test = np.zeros(N)
 for i in range(N):
-    error_i = np.zeros(mTrain)
+    error_count_test = 0
+    error_count_train = 0
+    for j in range(mTest):
+        F = A_list[i, :, :] @ xtest[:, j] + b_list[i, :]
+        y_hat_test[i, j] = np.argmax(F)
+        if y_hat_test[i, j] != ytest[j]:
+            error_count_test = error_count_test + 1
+    error_rate_test[i] = error_count_test / mTest * 100
     for j in range(mTrain):
         F = A_list[i, :, :] @ x[:, j] + b_list[i, :]
-        y_hat_train[i, j] = round(np.max(F))
-        if y_hat_train[i, j] >= 4:
-            y_hat_train[i, j] = 4
-        if y_hat_train[i, j] == y[j]:
-            error_i[j] = 1
-    error_list[i, :] = error_i
+        y_hat_train[i, j] = np.argmax(F)
+        if y_hat_train[i, j] != y[j]:
+            error_count_train = error_count_train + 1
+    error_rate_train[i] = error_count_train / mTrain * 100
 
+plt.plot(mus, error_rate_test)
+plt.plot(mus, error_rate_train)
+plt.xscale("log")
+plt.xlabel("mu")
+plt.ylabel("Error rate")
+plt.legend(['Test', 'Train'])
+plt.grid()
+plt.show()
 ss = 5
